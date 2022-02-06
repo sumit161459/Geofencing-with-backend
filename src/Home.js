@@ -1,41 +1,38 @@
-import React, {Component} from 'react';
 
-class Home extends Component {
-  constructor(props) {
-    
-    super(props);
-    // let that=this;
-    this.state = {
-      center: {
-        lat: null,
-        lng: null,
-      },
-      current:{
-        lat:null,
-        lng:null
-      },
-      distance:10,
-      content: 'Getting position...',
-      insideFence: false,
-      previousPolygon: null,
-      fence: null,
-      watchID: null,
-      lastFetched: null,
-      savedLocation:false,
-      inside:true
+import axios from 'axios';
+import React,{useState,useEffect} from 'react';
+import * as api from './api/index.js';
+
+const Home = ({isLoggedIn}) => {
+  const [center,setCenter]=useState({});
+  const [current,setCurrent]=useState({});
+  const [distance,setDistance]=useState(10);
+  const [watchId,setWatchId]=useState(null);
+  const [inside,setInside]=useState(true);
+  const [id,setId]=useState();
+
+  useEffect(() => {
+    watchLocation();
+    const postLocation={
+       latitude:0,
+       longitude:0
+     }
+    const createLocation = async(postLocation) =>{
+      try {
+        const response=await api.createLocation(postLocation);
+        setId(response.data._id);
+      } catch (error) {
+        console.log(error.message);
+      }
     };
-  }
+    createLocation(postLocation);
+    return () => {
+      navigator.geolocation.clearWatch(watchId);
+    };
+  }, []);
+  
 
-
-  componentDidMount() {
-    this.watchLocation();
-  }
-
-  componentWillUnmount() {
-    this.unwatchLocation();
-  }
-
-  watchLocation() {
+  const watchLocation=()=>{
     if ('geolocation' in navigator) {
       const geoOptions = {
         enableHighAccuracy: true,
@@ -43,84 +40,68 @@ class Home extends Component {
         timeout : 27000
       };
 
-      navigator.geolocation.watchPosition(this.getLocation.bind(this), null, geoOptions);
+      navigator.geolocation.watchPosition((position)=>{getLocation(position)}, null, geoOptions);
     } else {
       alert('Geolocation is not supported by this browser.');
     }
   }
 
-  
-  updateCenter(position){
-    this.setState({
-      center: {
+  const getLocation=(position)=> {
+      const newCurrent={ 
         lat: position.coords.latitude,
         lng: position.coords.longitude,
-      },
-    });
+      }
+      setCurrent(newCurrent);
+    if(center.lat===undefined){
+      const newCenter={
+        lat: position.coords.latitude,
+        lng: position.coords.longitude,
+      }
+      setCenter(newCenter);
+    }
+    checkDistance();
+  }
+
+  const updateCenter=(position)=>{
+    const newCenter={
+      lat: position.coords.latitude,
+      lng: position.coords.longitude,
+    }
+    setCenter(newCenter);
     alert('center updated successfully')
   }
 
-  currentLocation() {
+  const currentLocation=()=>{
     if ('geolocation' in navigator) {
       const geoOptions = {
         enableHighAccuracy: true,
         maximumAge : 30000,
         timeout : 27000
       };
-      navigator.geolocation.getCurrentPosition(this.updateCenter.bind(this), null, geoOptions);
+      navigator.geolocation.getCurrentPosition((position)=>{updateCenter(position)}, null, geoOptions);
     } else {
       alert('Geolocation is not supported by this browser.');
     }
   }
-
-
-
-  unwatchLocation() {
-    if ('geolocation' in navigator && this.state.watchID) {
-      navigator.geolocation.clearWatch(this.state.watchID);
-    }
-  }
-
-  getLocation(position) {
-    this.setState({
-      current: {
-        lat: position.coords.latitude,
-        lng: position.coords.longitude,
-      },
-    });
-    if(this.state.center.lat===null){
-      this.setState({
-        center: {
-          lat: position.coords.latitude,
-          lng: position.coords.longitude,
-        },
-      });
-    }
-    this.checkDistance();
-  }
-
-    checkDistance(){
-    let x=this.getDistanceFromLatLonInKm(this.state.center.lat,this.state.center.lng,this.state.current.lat,this.state.current.lng);
-    if(x<10){
-      this.setState({
-        inside:true
-      })
+  
+  const checkDistance=()=>{
+    let x=getDistanceFromLatLonInKm(center.lat,center.lng,current.lat,current.lng);
+    if(x<distance){
+      setInside(true);
     }
     else{
-      this.setState({
-        inside:false
-      })
+      setInside(false);
     }
   }
 
-  getDistanceFromLatLonInKm(lat1,lon1,lat2,lon2) {
+  const getDistanceFromLatLonInKm=(lat1,lon1,lat2,lon2)=>{
     if(!lat1 || !lat2 || !lon1 || !lon2) return 0;
     var R = 6371; // Radius of the earth in km
-    var dLat = this.deg2rad(lat2-lat1);  // deg2rad below
-    var dLon = this.deg2rad(lon2-lon1); 
+    var dLat = deg2rad(lat2-lat1);  // deg2rad below
+    var dLon = deg2rad(lon2-lon1); 
     var a = 
       Math.sin(dLat/2) * Math.sin(dLat/2) +
-      Math.cos(this.deg2rad(lat1)) * Math.cos(this.deg2rad(lat2)) * 
+      Math.cos(deg2rad(lat1)) * Math.cos(deg2rad(lat2)) * 
       Math.sin(dLon/2) * Math.sin(dLon/2)
       ; 
     var c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a)); 
@@ -129,53 +110,63 @@ class Home extends Component {
     return x*1000;
   }
 
-  deg2rad(deg) {
+  const deg2rad=(deg)=> {
     return deg * (Math.PI/180)
   }
 
-  saveLocation(){
-    alert('Location saved succesfully')
-  }
-  
-  chnageFence(e){
-    console.log(e.target.value);
-    this.setState({
-      distance:e.target.value
-    })
-  }
-
-  render() {
-
+  const saveLocation=()=>{
     
-    return (
-      <>
-      {this.state.center.lat===null && <div style={{display:'flex',justifyContent:'center',height:'40px'}}><h2>Enter your location to use the app</h2></div>}
-      {this.props.isLoggedIn && this.state.center.lat!==null &&
+    const newLocation={
+      latitude:current.lat,
+      longitude:current.lng
+    }
+   const updateLocation = async(newLocation) =>{
+     try {
+       const response=await api.updateLocation(id,newLocation);
+       alert('Location saved successfully');
+     } catch (error) {
+       console.log(error.message);
+     }
+   };
+   updateLocation(newLocation); 
+  }
+
+  
+  const chnageFence=(e)=>{
+    if(e.target.value>0){
+    setDistance(e.target.value)
+    }
+  }
+
+  return(
+    <>
+      {center.lat===undefined && <div style={{display:'flex',justifyContent:'center',height:'40px'}}><h2>Enter your location to use the app</h2></div>}
+      {isLoggedIn && center.lat!==undefined &&
       <div >
-        <div style={{display:'flex',justifyContent:'center',height:'40px'}}><h2>Latitude  {this.state.current.lat}</h2></div>
-        <div style={{display:'flex',justifyContent:'center',height:'40px'}}><h2>Longitude  {this.state.current.lng}</h2></div>
-        <div style={{display:'flex',justifyContent:'center',height:'40px'}}><h2>Fencing(in meter)  {this.state.distance}</h2></div>
+        <div style={{display:'flex',justifyContent:'center',height:'40px'}}><h2>Latitude  {current.lat}</h2></div>
+        <div style={{display:'flex',justifyContent:'center',height:'40px'}}><h2>Longitude  {current.lng}</h2></div>
+        <div style={{display:'flex',justifyContent:'center',height:'40px'}}><h2>Fencing(in meter)  {distance}</h2></div>
         <div style={{display:'flex',justifyContent:'center',alignItems:'center',marginTop:'20px'}}>
-        <button style={{background:'green',height:'30px',width:'150px'}}  onClick={this.currentLocation.bind(this)}>Change Center</button>
-        <button style={{background:'grey',height:'30px',width:'150px',marginLeft:'5px'}}  onClick={this.saveLocation.bind(this)}>Save Location</button>
+        <button style={{background:'green',height:'30px',width:'150px'}}  onClick={currentLocation}>Change Center</button>
+        <button style={{background:'grey',height:'30px',width:'150px',marginLeft:'5px'}}  onClick={saveLocation}>Save Location</button>
         </div>
-       <div style={{display:'flex',justifyContent:'center',alignItems:'center',marginTop:'10px'}}> <b>Enter fencing radius</b>&nbsp;<input type="number" onChange={this.chnageFence.bind(this)}></input></div>
-        {this.state.inside && <div style={{display:'flex',justifyContent:'center',height:'40px'}}><h2>You are inside the fence</h2></div>}
-        {!this.state.inside && <div style={{display:'flex',justifyContent:'center',height:'40px'}}><h2>Alert!! You are outside the fence</h2></div>}
+       <div style={{display:'flex',justifyContent:'center',alignItems:'center',marginTop:'10px'}}> <b>Enter fencing radius</b>&nbsp;<input type="number" onChange={(e)=>{chnageFence(e)}}></input></div>
+        {inside && <div style={{display:'flex',justifyContent:'center',height:'40px'}}><h2>You are inside the fence</h2></div>}
+        {!inside && <div style={{display:'flex',justifyContent:'center',height:'40px'}}><h2>Alert!! You are outside the fence</h2></div>}
         
       </div>}
       {
-        !this.props.isLoggedIn && this.state.center.lat!==null &&
+        !isLoggedIn && center.lat!==undefined &&
         
         <div >
           <div style={{display:'flex',justifyContent:'center',height:'40px'}}><h2>Signin to use geofencing application</h2></div>
-        <div style={{display:'flex',justifyContent:'center',height:'30px'}}><h2>Latitude  {this.state.current.lat}</h2></div>
-        <div style={{display:'flex',justifyContent:'center'}}><h2>Longitude  {this.state.current.lng}</h2></div>
+        <div style={{display:'flex',justifyContent:'center',height:'30px'}}><h2>Latitude  {current.lat}</h2></div>
+        <div style={{display:'flex',justifyContent:'center'}}><h2>Longitude  {current.lng}</h2></div>
         </div>
       }
-      </>
-    )
-  }
-}
+    </>
+  )
+};
 
 export default Home;
+ 

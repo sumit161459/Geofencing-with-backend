@@ -14,11 +14,10 @@ function Login({setLoggedIn}) {
     };
 
     const onLoginFailure = (res) => {
-        
+        console.log(res);
     };
 
     const onSignoutSuccess = () => {
-        alert("You have been logged out successfully");
         console.clear();
         setShowloginButton(true);
         setShowlogoutButton(false);
