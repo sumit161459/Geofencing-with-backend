@@ -1,6 +1,6 @@
 import axios from 'axios';
 
-const url = 'http://localhost:5000/location';
+const url = 'https://citymall-geofence-app.herokuapp.com/location';
 
 export const fetchLocation = () => axios.get(url);
 export const createLocation = (newLocation) => axios.post(url, newLocation);
