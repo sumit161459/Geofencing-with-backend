@@ -9,7 +9,6 @@ export const getLocation = async (req, res) => {
     const { id } = req.params;
     try {
         const locationDetails = await LocationDetails.findById(id);
-                
         res.status(200).json(locationDetails);
     } catch (error) {
         res.status(404).json({ message: error.message });
